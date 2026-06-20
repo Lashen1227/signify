@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -32,7 +32,6 @@ import {
 import { CameraFeed } from "@/components/CameraFeed";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { TranscriptPanel } from "@/components/TranscriptPanel";
-import { SessionHistory } from "@/components/SessionHistory";
 import { CommandPalette, PaletteIcons } from "@/components/CommandPalette";
 import { useCamera } from "@/hooks/useCamera";
 import { useConversationSession } from "@/hooks/useConversationSession";
@@ -46,7 +45,7 @@ type Props = {
 export function Dashboard({ onExit }: Props) {
   const [language, setLanguage] = useState("en");
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [historyKey, setHistoryKey] = useState(0);
+  const previousMotionFrameRef = useRef<Uint8ClampedArray | null>(null);
 
   const {
     videoRef,
@@ -62,6 +61,12 @@ export function Dashboard({ onExit }: Props) {
   const captureFrame = useCallback(() => {
     const video = videoRef.current;
     if (!video || !cameraEnabled) return null;
+
+    const motion = measureMotion(video, previousMotionFrameRef);
+    if (motion < 10) {
+      return null;
+    }
+
     const canvas = document.createElement("canvas");
     canvas.width = video.videoWidth || 640;
     canvas.height = video.videoHeight || 480;
@@ -73,11 +78,11 @@ export function Dashboard({ onExit }: Props) {
 
   const t = useConversationSession(language, captureFrame);
   const langLabel = useMemo(() => LANGUAGES.find((l) => l.code === language)?.label ?? language, [language]);
+  const isQuotaWarning = useMemo(() => isQuotaError(t.error), [t.error]);
 
   const handleStop = async () => {
     const session = await t.stop();
     if (session) {
-      setHistoryKey((k) => k + 1);
       toast.success("Session saved", { description: `${session.entries.length} entries captured.` });
     }
   };
@@ -129,8 +134,7 @@ export function Dashboard({ onExit }: Props) {
     >
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Live sign recognition with AI-assisted translation.</p>
+          <h5 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h5>
         </div>
         <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
           <ArrowLeft className="h-3.5 w-3.5" /> Back
@@ -139,6 +143,15 @@ export function Dashboard({ onExit }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
+          {isQuotaWarning && t.error ? (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              <p className="font-semibold">Gemini quota reached</p>
+              <p className="mt-1 text-amber-100/80">
+                Translation is paused because the API is rate limited. The app will skip static frames and wait for
+                quota to recover. Try again later or increase the Gemini project quota.
+              </p>
+            </div>
+          ) : null}
           <CameraFeed
             recording={t.status === "recording"}
             processing={t.processing}
@@ -151,11 +164,20 @@ export function Dashboard({ onExit }: Props) {
             disable={disableCamera}
             switchDevice={switchDevice}
           />
-          {t.error && (
+          {t.error && !isQuotaWarning && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
               {t.error}
             </div>
           )}
+          <SessionActionsBar
+            status={t.status}
+            onStart={t.start}
+            onPause={t.pause}
+            onResume={t.resume}
+            onStop={handleStop}
+            onClear={handleClear}
+            hasEntries={t.entries.length > 0}
+          />
           <StatsCards elapsedMs={t.elapsedMs} words={t.words} signs={t.signs} confidence={t.confidence} />
         </div>
 
@@ -166,22 +188,6 @@ export function Dashboard({ onExit }: Props) {
           <TranscriptPanel entries={t.entries} processing={t.processing} />
           <ExportActions entries={t.entries} languageLabel={langLabel} />
         </div>
-      </div>
-
-      <div className="mt-8">
-        <SessionHistory refreshKey={historyKey} />
-      </div>
-
-      <div className="mt-8">
-        <ControlBar
-          status={t.status}
-          onStart={t.start}
-          onPause={t.pause}
-          onResume={t.resume}
-          onStop={handleStop}
-          onClear={handleClear}
-          hasEntries={t.entries.length > 0}
-        />
       </div>
 
       <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} actions={actions} />
@@ -278,7 +284,7 @@ function ExportActions({ entries, languageLabel }: { entries: Parameters<typeof 
   );
 }
 
-function ControlBar({
+function SessionActionsBar({
   status,
   onStart,
   onPause,
@@ -300,8 +306,8 @@ function ControlBar({
   const isActive = isRecording || isPaused;
 
   return (
-    <div className="sticky bottom-4 z-30">
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-card/90 px-3 py-2.5 shadow-elevated backdrop-blur">
+    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
+      <div className="flex flex-wrap items-center justify-center gap-2">
         {!isActive ? (
           <Button size="lg" onClick={onStart} className="h-10 gap-2 px-5">
             <Play className="h-4 w-4" />
@@ -353,5 +359,49 @@ function ControlBar({
         </AlertDialog>
       </div>
     </div>
+  );
+}
+
+function measureMotion(
+  video: HTMLVideoElement,
+  previousFrameRef: MutableRefObject<Uint8ClampedArray | null>,
+) {
+  const width = 64;
+  const height = 48;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return 0;
+
+  ctx.drawImage(video, 0, 0, width, height);
+  const { data } = ctx.getImageData(0, 0, width, height);
+  const grayscale = new Uint8ClampedArray(width * height);
+
+  for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+    grayscale[p] = Math.round((data[i] + data[i + 1] + data[i + 2]) / 3);
+  }
+
+  const previous = previousFrameRef.current;
+  previousFrameRef.current = grayscale;
+
+  if (!previous) return 100;
+
+  let totalDiff = 0;
+  for (let i = 0; i < grayscale.length; i += 1) {
+    totalDiff += Math.abs(grayscale[i] - previous[i]);
+  }
+
+  return totalDiff / grayscale.length;
+}
+
+function isQuotaError(message: string | null) {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("quota exceeded") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("resource_exhausted") ||
+    normalized.includes("429")
   );
 }

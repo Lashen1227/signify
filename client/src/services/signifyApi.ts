@@ -1,6 +1,10 @@
 import type { Session, TranscriptEntry } from "@/types/transcript";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") || "http://localhost:8787";
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "");
+
+if (!API_BASE) {
+  throw new Error("VITE_API_BASE_URL is not configured");
+}
 
 type ApiEnvelope<T> = {
   session?: Session;

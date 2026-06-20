@@ -18,7 +18,18 @@ type CameraFeedProps = {
   switchDevice: (id: string) => Promise<void>;
 };
 
-export function CameraFeed({ recording, processing, videoRef, devices, deviceId, enabled, error, enable, disable, switchDevice }: CameraFeedProps) {
+export function CameraFeed({
+  recording,
+  processing,
+  videoRef,
+  devices,
+  deviceId,
+  enabled,
+  error,
+  enable,
+  disable,
+  switchDevice,
+}: CameraFeedProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const goFullscreen = async () => {

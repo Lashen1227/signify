@@ -17,7 +17,6 @@ export function Navbar() {
           </div>
           <div className="flex flex-col leading-none">
             <span className="text-sm font-semibold tracking-tight">Signify</span>
-            <span className="text-[10px] text-muted-foreground">Sign Language Converter</span>
           </div>
         </div>
 

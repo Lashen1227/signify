@@ -9,7 +9,8 @@ import {
   stopSession,
 } from "@/services/signifyApi";
 
-const FRAME_INTERVAL_MS = 2500;
+const FRAME_INTERVAL_MS = 30000;
+const RATE_LIMIT_COOLDOWN_MS = 60000;
 
 type CaptureFrame = () => string | Promise<string | null> | null;
 
@@ -23,6 +24,7 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
   const [error, setError] = useState<string | null>(null);
   const startedAtRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const cooldownUntilRef = useRef(0);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -38,6 +40,7 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
 
   const captureAndSend = useCallback(async () => {
     if (!sessionId || status !== "recording" || processing) return;
+    if (Date.now() < cooldownUntilRef.current) return;
     const image = await captureFrame();
     if (!image) return;
 
@@ -53,7 +56,11 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
       }
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Frame upload failed");
+      const message = err instanceof Error ? err.message : "Frame upload failed";
+      setError(message);
+      if (isRateLimitError(message)) {
+        cooldownUntilRef.current = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+      }
     } finally {
       setProcessing(false);
     }
@@ -79,6 +86,7 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
       setElapsedMs(0);
       setConfidence(0);
       setStatus("recording");
+      cooldownUntilRef.current = 0;
       startedAtRef.current = Date.now();
       setError(null);
       clearTimer();
@@ -109,6 +117,7 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
     try {
       await resumeSession(sessionId);
       startedAtRef.current = Date.now() - elapsedMs;
+      cooldownUntilRef.current = 0;
       setStatus("recording");
       clearTimer();
       timerRef.current = setInterval(() => {
@@ -171,4 +180,14 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
     stop,
     clearTranscript,
   };
+}
+
+function isRateLimitError(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("resource_exhausted") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("quota exceeded") ||
+    normalized.includes("429")
+  );
 }

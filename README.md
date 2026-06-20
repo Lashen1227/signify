@@ -26,6 +26,8 @@ cp server/.env.example server/.env
 
 Then edit `server/.env` and set `GEMINI_API_KEY`.
 
+If `GEMINI_API_KEY` is missing, the backend now returns a safe fallback transcript instead of a hard 500 error, so the app still runs end-to-end while you set up the key.
+
 ## Development
 
 Start the server and client in separate terminals:

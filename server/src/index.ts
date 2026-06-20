@@ -1,3 +1,4 @@
+import "./env.js";
 import { Readable } from "node:stream";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
