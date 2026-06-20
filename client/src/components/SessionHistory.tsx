@@ -18,46 +18,7 @@ import { downloadPdf, formatDuration } from "@/services/exportService";
 import type { Session } from "@/types/transcript";
 import { LANGUAGES } from "@/types/transcript";
 
-const MOCK_SESSIONS: Session[] = [
-  {
-    id: "mock-1",
-    name: "Customer support demo",
-    createdAt: Date.now() - 1000 * 60 * 60 * 26,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 26,
-    language: "en",
-    status: "stopped",
-    durationMs: 1000 * 60 * 7 + 12_000,
-    entries: [
-      { id: "m1", timestamp: Date.now() - 1000 * 60 * 60 * 26, text: "Hello, how can I help you?", confidence: 0.94 },
-      { id: "m2", timestamp: Date.now() - 1000 * 60 * 60 * 26 + 4000, text: "I have a question about my order.", confidence: 0.91 },
-    ],
-    frameCount: 2,
-  },
-  {
-    id: "mock-2",
-    name: "Onboarding session",
-    createdAt: Date.now() - 1000 * 60 * 60 * 72,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 72,
-    language: "fr",
-    status: "stopped",
-    durationMs: 1000 * 60 * 12,
-    entries: [
-      { id: "m3", timestamp: Date.now() - 1000 * 60 * 60 * 72, text: "Bonjour et bienvenue.", confidence: 0.88 },
-    ],
-    frameCount: 1,
-  },
-  {
-    id: "mock-3",
-    name: "Family conversation",
-    createdAt: Date.now() - 1000 * 60 * 60 * 120,
-    updatedAt: Date.now() - 1000 * 60 * 60 * 120,
-    language: "si",
-    status: "stopped",
-    durationMs: 1000 * 60 * 5,
-    entries: [{ id: "m4", timestamp: Date.now() - 1000 * 60 * 60 * 120, text: "ආයුබෝවන්.", confidence: 0.86 }],
-    frameCount: 1,
-  },
-];
+
 
 type Props = {
   refreshKey: number;
@@ -69,10 +30,10 @@ export function SessionHistory({ refreshKey }: Props) {
 
   useEffect(() => {
     const stored = loadSessions();
-    setSessions([...stored, ...MOCK_SESSIONS]);
+    setSessions([...stored]);
     apiListSessions()
       .then((serverSessions) => {
-        setSessions([...serverSessions, ...stored, ...MOCK_SESSIONS]);
+        setSessions([...serverSessions, ...stored]);
       })
       .catch(() => {
         // Server unavailable, use local only

@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { ArrowRight, Hand, Languages, Sparkles, Zap } from "lucide-react";
+import { ArrowRight, Languages, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/Navbar";
 import { Dashboard } from "@/components/Dashboard";
-import { CommandPalette } from "@/components/CommandPalette";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -29,11 +28,10 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const [started, setStarted] = useState(false);
-  const [paletteOpen, setPaletteOpen] = useState(false);
 
   return (
     <div className="min-h-dvh bg-background">
-      <Navbar onOpenPalette={() => setPaletteOpen(true)} />
+      <Navbar />
       <main>
         {started ? (
           <Dashboard onExit={() => setStarted(false)} />
@@ -42,21 +40,6 @@ function Index() {
         )}
       </main>
       <Toaster richColors position="top-right" />
-      {!started && (
-        <CommandPalette
-          open={paletteOpen}
-          setOpen={setPaletteOpen}
-          actions={[
-            {
-              id: "start-cta",
-              group: "Session",
-              label: "Start conversion",
-              icon: Hand,
-              onSelect: () => setStarted(true),
-            },
-          ]}
-        />
-      )}
     </div>
   );
 }
@@ -71,12 +54,12 @@ function Landing({ onStart }: { onStart: () => void }) {
     {
       icon: Languages,
       title: "Multilingual output",
-      body: "Convert to English, Sinhala, Tamil, French, German, Spanish and more.",
+      body: "Convert into languages spoken across the world.",
     },
     {
       icon: Sparkles,
       title: "Polished exports",
-      body: "Download timestamped PDF transcripts ready for sharing.",
+      body: "Download timestamped transcripts ready for sharing.",
     },
   ];
 
@@ -89,7 +72,7 @@ function Landing({ onStart }: { onStart: () => void }) {
         className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft"
       >
         <span className="h-1.5 w-1.5 rounded-full bg-success" />
-        Powered by on-device AI
+        Powered by Gemini
       </motion.span>
 
       <motion.h1
@@ -120,9 +103,6 @@ function Landing({ onStart }: { onStart: () => void }) {
           Start Conversion
           <ArrowRight className="h-4 w-4" />
         </Button>
-        <span className="text-xs text-muted-foreground">
-          Press <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-medium">⌘K</kbd> for commands
-        </span>
       </motion.div>
 
       <div className="mt-20 grid w-full gap-4 sm:grid-cols-3">
