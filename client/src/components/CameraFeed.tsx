@@ -44,7 +44,7 @@ export function CameraFeed({
         <div className="flex items-center gap-2.5">
           <span className="text-sm font-semibold tracking-tight">Live Sign Detection</span>
           {recording && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-destructive">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-success">
               <span className="recording-dot h-1.5 w-1.5 rounded-full" />
               REC
             </span>
@@ -74,9 +74,9 @@ export function CameraFeed({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-soft backdrop-blur"
+            className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success shadow-soft backdrop-blur"
           >
-            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            <Loader2 className="h-3 w-3 animate-spin text-success" />
             AI processing
           </motion.div>
         )}
