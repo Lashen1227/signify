@@ -25,6 +25,25 @@ await app.register(cors, {
   origin: process.env.CLIENT_ORIGIN?.split(",").map((value) => value.trim()) ?? true,
 });
 
+app.get("/", async () => ({
+  name: "Signify API",
+  version: "1.0.0",
+  health: "/health",
+  docs: {
+    languages: "GET /api/languages",
+    sessions: "GET /api/sessions",
+    createSession: "POST /api/sessions { language }",
+    getSession: "GET /api/sessions/:id",
+    sendFrame: "POST /api/sessions/:id/frame { image }",
+    pauseSession: "POST /api/sessions/:id/pause",
+    resumeSession: "POST /api/sessions/:id/resume",
+    stopSession: "POST /api/sessions/:id/stop { durationMs }",
+    clearTranscript: "POST /api/sessions/:id/clear",
+    deleteSession: "DELETE /api/sessions/:id",
+    exportPdf: "GET /api/sessions/:id/pdf",
+  },
+}));
+
 app.get("/health", async () => ({ ok: true }));
 
 app.get("/api/languages", async () => ({
