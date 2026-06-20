@@ -1,0 +1,167 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --shadow-soft: 0 1px 2px 0 oklch(0 0 0 / 0.04), 0 1px 3px 0 oklch(0 0 0 / 0.06);
+  --shadow-elevated: 0 4px 12px -2px oklch(0 0 0 / 0.06), 0 2px 6px -1px oklch(0 0 0 / 0.04);
+  --shadow-glow: 0 0 0 1px oklch(0.55 0.22 264 / 0.12), 0 8px 24px -4px oklch(0.55 0.22 264 / 0.25);
+}
+
+:root {
+  --radius: 0.75rem;
+  /* #FAFAFA */
+  --background: oklch(0.985 0 0);
+  /* #111827 */
+  --foreground: oklch(0.21 0.034 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.034 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.034 264);
+  /* #2563EB */
+  --primary: oklch(0.546 0.221 263);
+  --primary-foreground: oklch(0.99 0 0);
+  /* #F3F4F6 */
+  --secondary: oklch(0.967 0.003 264);
+  --secondary-foreground: oklch(0.21 0.034 264);
+  --muted: oklch(0.967 0.003 264);
+  /* #6B7280 */
+  --muted-foreground: oklch(0.524 0.022 264);
+  --accent: oklch(0.967 0.003 264);
+  --accent-foreground: oklch(0.21 0.034 264);
+  /* #EF4444 */
+  --destructive: oklch(0.637 0.237 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  /* #10B981 */
+  --success: oklch(0.696 0.152 162);
+  --success-foreground: oklch(0.99 0 0);
+  /* #F59E0B */
+  --warning: oklch(0.768 0.166 70);
+  --warning-foreground: oklch(0.21 0.034 264);
+  /* #E5E7EB */
+  --border: oklch(0.918 0.004 264);
+  --input: oklch(0.918 0.004 264);
+  --ring: oklch(0.546 0.221 263);
+  --sidebar: oklch(0.99 0 0);
+  --sidebar-foreground: oklch(0.21 0.034 264);
+  --sidebar-primary: oklch(0.546 0.221 263);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.967 0.003 264);
+  --sidebar-accent-foreground: oklch(0.21 0.034 264);
+  --sidebar-border: oklch(0.918 0.004 264);
+  --sidebar-ring: oklch(0.546 0.221 263);
+}
+
+.dark {
+  /* #0F172A */
+  --background: oklch(0.198 0.04 265);
+  --foreground: oklch(0.97 0.01 264);
+  /* #1E293B */
+  --card: oklch(0.265 0.035 264);
+  --card-foreground: oklch(0.97 0.01 264);
+  --popover: oklch(0.265 0.035 264);
+  --popover-foreground: oklch(0.97 0.01 264);
+  --primary: oklch(0.62 0.21 263);
+  --primary-foreground: oklch(0.99 0 0);
+  /* #334155 */
+  --secondary: oklch(0.34 0.03 264);
+  --secondary-foreground: oklch(0.97 0.01 264);
+  --muted: oklch(0.34 0.03 264);
+  --muted-foreground: oklch(0.72 0.02 264);
+  --accent: oklch(0.34 0.03 264);
+  --accent-foreground: oklch(0.97 0.01 264);
+  --destructive: oklch(0.67 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.72 0.16 162);
+  --success-foreground: oklch(0.15 0 0);
+  --warning: oklch(0.78 0.17 70);
+  --warning-foreground: oklch(0.15 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.62 0.21 263);
+  --sidebar: oklch(0.265 0.035 264);
+  --sidebar-foreground: oklch(0.97 0.01 264);
+  --sidebar-primary: oklch(0.62 0.21 263);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.34 0.03 264);
+  --sidebar-accent-foreground: oklch(0.97 0.01 264);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.62 0.21 263);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+@utility glass {
+  background: color-mix(in oklab, var(--color-background) 70%, transparent);
+  backdrop-filter: saturate(180%) blur(16px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+@utility recording-dot {
+  background: var(--color-destructive);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-destructive) 60%, transparent);
+  animation: recording-pulse 1.6s ease-out infinite;
+}
+
+@keyframes recording-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-destructive) 60%, transparent); }
+  70% { box-shadow: 0 0 0 10px color-mix(in oklab, var(--color-destructive) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-destructive) 0%, transparent); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in { animation: fade-in 0.3s ease-out; }

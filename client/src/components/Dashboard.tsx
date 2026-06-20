@@ -1,0 +1,357 @@
+import { useCallback, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+import {
+  Activity,
+  ArrowLeft,
+  Clock,
+  Copy,
+  Download,
+  FileText,
+  Hand,
+  Pause,
+  Play,
+  Square,
+  Trash2,
+  Type,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { CameraFeed } from "@/components/CameraFeed";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { TranscriptPanel } from "@/components/TranscriptPanel";
+import { SessionHistory } from "@/components/SessionHistory";
+import { CommandPalette, PaletteIcons } from "@/components/CommandPalette";
+import { useCamera } from "@/hooks/useCamera";
+import { useConversationSession } from "@/hooks/useConversationSession";
+import { copyTranscript, downloadPdf, downloadText, formatDuration } from "@/services/exportService";
+import { LANGUAGES } from "@/types/transcript";
+
+type Props = {
+  onExit: () => void;
+};
+
+export function Dashboard({ onExit }: Props) {
+  const [language, setLanguage] = useState("en");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
+
+  const {
+    videoRef,
+    devices,
+    deviceId,
+    enabled: cameraEnabled,
+    error: cameraError,
+    enable: enableCamera,
+    disable: disableCamera,
+    switchDevice,
+  } = useCamera();
+
+  const captureFrame = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || !cameraEnabled) return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0);
+    return canvas.toDataURL("image/jpeg", 0.8);
+  }, [videoRef, cameraEnabled]);
+
+  const t = useConversationSession(language, captureFrame);
+  const langLabel = useMemo(() => LANGUAGES.find((l) => l.code === language)?.label ?? language, [language]);
+
+  const handleStop = async () => {
+    const session = await t.stop();
+    if (session) {
+      setHistoryKey((k) => k + 1);
+      toast.success("Session saved", { description: `${session.entries.length} entries captured.` });
+    }
+  };
+
+  const handleClear = async () => {
+    await t.clearTranscript();
+    toast("Transcript cleared");
+  };
+
+  const actions = [
+    { id: "start", group: "Session" as const, label: "Start session", icon: PaletteIcons.Play, onSelect: t.start },
+    {
+      id: "pause",
+      group: "Session" as const,
+      label: t.status === "paused" ? "Resume session" : "Pause session",
+      icon: t.status === "paused" ? PaletteIcons.Play : PaletteIcons.Pause,
+      onSelect: t.status === "paused" ? t.resume : t.pause,
+    },
+    { id: "stop", group: "Session" as const, label: "Stop session", icon: PaletteIcons.Square, onSelect: handleStop },
+    { id: "clear", group: "Session" as const, label: "Clear transcript", icon: PaletteIcons.Trash2, onSelect: handleClear },
+    {
+      id: "pdf",
+      group: "Export" as const,
+      label: "Download PDF",
+      icon: PaletteIcons.Download,
+      onSelect: () => {
+        downloadPdf(t.entries, langLabel);
+        toast.success("PDF downloaded");
+      },
+    },
+    {
+      id: "txt",
+      group: "Export" as const,
+      label: "Download TXT",
+      icon: PaletteIcons.Download,
+      onSelect: () => {
+        downloadText(t.entries, langLabel);
+        toast.success("TXT downloaded");
+      },
+    },
+  ];
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35 }}
+      className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6"
+    >
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Live sign recognition with AI-assisted translation.</p>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
+          <ArrowLeft className="h-3.5 w-3.5" /> Back
+        </Button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <div className="space-y-6 lg:col-span-3">
+          <CameraFeed
+            recording={t.status === "recording"}
+            processing={t.processing}
+            videoRef={videoRef}
+            devices={devices}
+            deviceId={deviceId}
+            enabled={cameraEnabled}
+            error={cameraError}
+            enable={enableCamera}
+            disable={disableCamera}
+            switchDevice={switchDevice}
+          />
+          {t.error && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+              {t.error}
+            </div>
+          )}
+          <StatsCards elapsedMs={t.elapsedMs} words={t.words} signs={t.signs} confidence={t.confidence} />
+        </div>
+
+        <div className="space-y-6 lg:col-span-2">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+            <LanguageSelector value={language} onChange={setLanguage} />
+          </div>
+          <TranscriptPanel entries={t.entries} processing={t.processing} />
+          <ExportActions entries={t.entries} languageLabel={langLabel} />
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <SessionHistory refreshKey={historyKey} />
+      </div>
+
+      <div className="mt-8">
+        <ControlBar
+          status={t.status}
+          onStart={t.start}
+          onPause={t.pause}
+          onResume={t.resume}
+          onStop={handleStop}
+          onClear={handleClear}
+          hasEntries={t.entries.length > 0}
+        />
+      </div>
+
+      <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} actions={actions} />
+    </motion.section>
+  );
+}
+
+function StatsCards({
+  elapsedMs,
+  words,
+  signs,
+  confidence,
+}: {
+  elapsedMs: number;
+  words: number;
+  signs: number;
+  confidence: number;
+}) {
+  const items = [
+    { icon: Clock, label: "Session Duration", value: formatDuration(elapsedMs) },
+    { icon: Type, label: "Words Detected", value: words.toLocaleString() },
+    { icon: Hand, label: "Signs Recognized", value: signs.toLocaleString() },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {items.map((item) => (
+        <Card key={item.label} className="p-4 shadow-soft">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <item.icon className="h-3.5 w-3.5" />
+            {item.label}
+          </div>
+          <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{item.value}</p>
+        </Card>
+      ))}
+      <Card className="p-4 shadow-soft">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Activity className="h-3.5 w-3.5" />
+          Confidence
+        </div>
+        <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">
+          {(confidence * 100).toFixed(0)}
+          <span className="text-base text-muted-foreground">%</span>
+        </p>
+        <Progress value={confidence * 100} className="mt-2 h-1.5" />
+      </Card>
+    </div>
+  );
+}
+
+function ExportActions({ entries, languageLabel }: { entries: Parameters<typeof copyTranscript>[0]; languageLabel: string }) {
+  const empty = entries.length === 0;
+
+  const handlePdf = () => {
+    downloadPdf(entries, languageLabel);
+    toast.success("PDF downloaded");
+  };
+
+  const handleTxt = () => {
+    downloadText(entries, languageLabel);
+    toast.success("Transcript saved as .txt");
+  };
+
+  const handleCopy = async () => {
+    try {
+      await copyTranscript(entries);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Could not copy");
+    }
+  };
+
+  return (
+    <Card className="p-5 shadow-soft">
+      <div className="mb-4 flex items-center gap-2">
+        <FileText className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold tracking-tight">Export</h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Button onClick={handlePdf} disabled={empty} className="justify-start gap-2">
+          <Download className="h-4 w-4" /> Download PDF
+        </Button>
+        <Button onClick={handleTxt} variant="outline" disabled={empty} className="justify-start gap-2">
+          <Download className="h-4 w-4" /> Download TXT
+        </Button>
+        <Button onClick={handleCopy} variant="ghost" disabled={empty} className="justify-start gap-2">
+          <Copy className="h-4 w-4" /> Copy transcript
+        </Button>
+      </div>
+      {empty && (
+        <p className="mt-3 text-xs text-muted-foreground">No entries yet - start a session to enable exports.</p>
+      )}
+    </Card>
+  );
+}
+
+function ControlBar({
+  status,
+  onStart,
+  onPause,
+  onResume,
+  onStop,
+  onClear,
+  hasEntries,
+}: {
+  status: "idle" | "recording" | "paused" | "stopped";
+  onStart: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onStop: () => void;
+  onClear: () => void;
+  hasEntries: boolean;
+}) {
+  const isRecording = status === "recording";
+  const isPaused = status === "paused";
+  const isActive = isRecording || isPaused;
+
+  return (
+    <div className="sticky bottom-4 z-30">
+      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-2 rounded-2xl border border-border bg-card/90 px-3 py-2.5 shadow-elevated backdrop-blur">
+        {!isActive ? (
+          <Button size="lg" onClick={onStart} className="h-10 gap-2 px-5">
+            <Play className="h-4 w-4" />
+            Start
+          </Button>
+        ) : isRecording ? (
+          <Button size="lg" variant="outline" onClick={onPause} className="h-10 gap-2 px-5">
+            <Pause className="h-4 w-4" />
+            Pause
+          </Button>
+        ) : (
+          <Button size="lg" onClick={onResume} className="h-10 gap-2 px-5">
+            <Play className="h-4 w-4" />
+            Resume
+          </Button>
+        )}
+
+        <Button
+          size="lg"
+          variant="destructive"
+          onClick={onStop}
+          disabled={!isActive}
+          className="h-10 gap-2 px-5"
+          aria-label="Stop conversation"
+        >
+          <Square className="h-4 w-4" />
+          Stop
+        </Button>
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="lg" variant="ghost" disabled={!hasEntries} className="h-10 gap-2 px-4">
+              <Trash2 className="h-4 w-4" />
+              Clear
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear transcript?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This removes all converted entries from the current session. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={onClear}>Clear transcript</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
+  );
+}
