@@ -8,19 +8,23 @@ import { Card } from "@/components/ui/card";
 type CameraFeedProps = {
   recording: boolean;
   processing: boolean;
+  countdown: number | null;
+  cameraPrompt: string | null;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   devices: MediaDeviceInfo[];
   deviceId: string | undefined;
   enabled: boolean;
   error: string | null;
-  enable: (id?: string) => Promise<void>;
-  disable: () => void;
+  enable: (id?: string) => Promise<boolean>;
+  disable: () => void | Promise<void>;
   switchDevice: (id: string) => Promise<void>;
 };
 
 export function CameraFeed({
   recording,
   processing,
+  countdown,
+  cameraPrompt,
   videoRef,
   devices,
   deviceId,
@@ -50,9 +54,17 @@ export function CameraFeed({
             </span>
           )}
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goFullscreen} aria-label="Enter fullscreen">
-          <Maximize2 className="h-3.5 w-3.5" />
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {enabled && (
+            <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs" onClick={disable} aria-label="Disable camera">
+              <CameraOff className="h-3.5 w-3.5" />
+              Disable
+            </Button>
+          )}
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goFullscreen} aria-label="Enter fullscreen">
+            <Maximize2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
       <div ref={containerRef} className="relative aspect-video w-full bg-foreground/95">
@@ -66,7 +78,10 @@ export function CameraFeed({
         {!enabled && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-foreground/95 text-background/80">
             <Camera className="h-10 w-10 opacity-50" />
-            <p className="text-sm">Camera is off</p>
+            <p className="text-sm font-medium">Camera is off</p>
+            <p className="max-w-xs px-4 text-center text-xs text-background/60">
+              {cameraPrompt ?? "Enable the camera to start sign language detection."}
+            </p>
             {error && <p className="max-w-xs px-4 text-center text-xs text-destructive">{error}</p>}
           </div>
         )}
@@ -74,10 +89,25 @@ export function CameraFeed({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success shadow-soft backdrop-blur"
+            className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary shadow-soft backdrop-blur"
           >
-            <Loader2 className="h-3 w-3 animate-spin text-success" />
+            <Loader2 className="h-3 w-3 animate-spin text-primary" />
             AI processing
+          </motion.div>
+        )}
+        {countdown !== null && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="absolute inset-0 flex items-center justify-center bg-background/55 backdrop-blur-sm"
+          >
+            <div className="rounded-3xl border border-border bg-card/95 px-8 py-6 text-center shadow-elevated">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+                Get ready
+              </p>
+              <p className="mt-2 text-6xl font-semibold tracking-tight text-primary">{countdown}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Start signing when the timer ends</p>
+            </div>
           </motion.div>
         )}
       </div>

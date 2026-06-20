@@ -32,9 +32,11 @@ export function useCamera() {
       }
       setEnabled(true);
       await refreshDevices();
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not access camera");
       setEnabled(false);
+      return false;
     }
   }, [refreshDevices]);
 

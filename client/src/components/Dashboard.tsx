@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -45,7 +45,10 @@ type Props = {
 export function Dashboard({ onExit }: Props) {
   const [language, setLanguage] = useState("en");
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [cameraPrompt, setCameraPrompt] = useState<string | null>(null);
   const previousMotionFrameRef = useRef<Uint8ClampedArray | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const {
     videoRef,
@@ -80,7 +83,88 @@ export function Dashboard({ onExit }: Props) {
   const langLabel = useMemo(() => LANGUAGES.find((l) => l.code === language)?.label ?? language, [language]);
   const isQuotaWarning = useMemo(() => isQuotaError(t.error), [t.error]);
 
+  const clearCountdown = useCallback(() => {
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+    }
+    countdownTimerRef.current = null;
+    setCountdown(null);
+  }, []);
+
+  const handleDisableCamera = useCallback(async () => {
+    clearCountdown();
+    setCameraPrompt("Camera disabled. Re-enable it to continue translation.");
+
+    if (t.status === "recording") {
+      try {
+        await t.pause();
+        toast.info("Translation paused", { description: "The camera was turned off." });
+      } catch {
+        toast.error("Could not pause translation", {
+          description: "The camera was turned off, but the session did not pause automatically.",
+        });
+      }
+    }
+
+    disableCamera();
+  }, [clearCountdown, disableCamera, t]);
+
+  const handleResume = useCallback(async () => {
+    if (!cameraEnabled) {
+      setCameraPrompt(null);
+      const enabledNow = await enableCamera(deviceId);
+      if (!enabledNow) {
+        toast.error("Camera is off", { description: "Enable the camera before resuming translation." });
+        return;
+      }
+    }
+
+    setCameraPrompt(null);
+    await t.resume();
+  }, [cameraEnabled, deviceId, enableCamera, t]);
+
+  const startWithCountdown = useCallback(() => {
+    if (!cameraEnabled) {
+      setCameraPrompt("Enable the camera first, then press Start to begin sign language detection.");
+      toast.error("Camera is off", { description: "Enable the camera to start sign language detection." });
+      return;
+    }
+
+    if (t.status !== "idle" || countdown !== null) return;
+
+    setCameraPrompt(null);
+    previousMotionFrameRef.current = null;
+    setCountdown(3);
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((current) => {
+        if (current == null) {
+          clearCountdown();
+          return null;
+        }
+
+        if (current <= 1) {
+          clearCountdown();
+          void t.start();
+          return null;
+        }
+
+        return current - 1;
+      });
+    }, 1000);
+  }, [clearCountdown, countdown, t]);
+
+  useEffect(() => {
+    return () => clearCountdown();
+  }, [clearCountdown]);
+
+  useEffect(() => {
+    if (cameraEnabled) {
+      setCameraPrompt(null);
+    }
+  }, [cameraEnabled]);
+
   const handleStop = async () => {
+    clearCountdown();
     const session = await t.stop();
     if (session) {
       toast.success("Session saved", { description: `${session.entries.length} entries captured.` });
@@ -88,6 +172,7 @@ export function Dashboard({ onExit }: Props) {
   };
 
   const handleClear = async () => {
+    clearCountdown();
     await t.clearTranscript();
     toast("Transcript cleared");
   };
@@ -99,7 +184,7 @@ export function Dashboard({ onExit }: Props) {
       group: "Session" as const,
       label: t.status === "paused" ? "Resume session" : "Pause session",
       icon: t.status === "paused" ? PaletteIcons.Play : PaletteIcons.Pause,
-      onSelect: t.status === "paused" ? t.resume : t.pause,
+      onSelect: t.status === "paused" ? handleResume : t.pause,
     },
     { id: "stop", group: "Session" as const, label: "Stop session", icon: PaletteIcons.Square, onSelect: handleStop },
     { id: "clear", group: "Session" as const, label: "Clear transcript", icon: PaletteIcons.Trash2, onSelect: handleClear },
@@ -155,13 +240,15 @@ export function Dashboard({ onExit }: Props) {
           <CameraFeed
             recording={t.status === "recording"}
             processing={t.processing}
+            countdown={countdown}
+            cameraPrompt={cameraPrompt}
             videoRef={videoRef}
             devices={devices}
             deviceId={deviceId}
             enabled={cameraEnabled}
             error={cameraError}
             enable={enableCamera}
-            disable={disableCamera}
+            disable={handleDisableCamera}
             switchDevice={switchDevice}
           />
           {t.error && !isQuotaWarning && (
@@ -171,9 +258,10 @@ export function Dashboard({ onExit }: Props) {
           )}
           <SessionActionsBar
             status={t.status}
-            onStart={t.start}
+            starting={countdown !== null}
+            onStart={startWithCountdown}
             onPause={t.pause}
-            onResume={t.resume}
+            onResume={handleResume}
             onStop={handleStop}
             onClear={handleClear}
             hasEntries={t.entries.length > 0}
@@ -286,6 +374,7 @@ function ExportActions({ entries, languageLabel }: { entries: Parameters<typeof 
 
 function SessionActionsBar({
   status,
+  starting,
   onStart,
   onPause,
   onResume,
@@ -294,6 +383,7 @@ function SessionActionsBar({
   hasEntries,
 }: {
   status: "idle" | "recording" | "paused" | "stopped";
+  starting: boolean;
   onStart: () => void;
   onPause: () => void;
   onResume: () => void;
@@ -309,9 +399,9 @@ function SessionActionsBar({
     <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-soft">
       <div className="flex flex-wrap items-center justify-center gap-2">
         {!isActive ? (
-          <Button size="lg" onClick={onStart} className="h-10 gap-2 px-5">
+          <Button size="lg" onClick={onStart} disabled={starting} className="h-10 gap-2 px-5">
             <Play className="h-4 w-4" />
-            Start
+            {starting ? "Starting..." : "Start"}
           </Button>
         ) : isRecording ? (
           <Button size="lg" variant="outline" onClick={onPause} className="h-10 gap-2 px-5">
