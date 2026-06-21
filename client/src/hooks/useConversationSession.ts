@@ -9,8 +9,8 @@ import {
   stopSession,
 } from "@/services/signifyApi";
 
-const FRAME_INTERVAL_MS = 30000;
-const RATE_LIMIT_COOLDOWN_MS = 60000;
+const FRAME_INTERVAL_MS = 2500;
+const RATE_LIMIT_COOLDOWN_MS = 5000;
 
 type CaptureFrame = () => string | Promise<string | null> | null;
 
