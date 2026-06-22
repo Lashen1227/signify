@@ -52,7 +52,7 @@ function Landing({ onStart }: { onStart: () => void }) {
       <motion.h1
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, delay: 0.05 }}
+        transition={{ duration: 0.5 }}
         className="mt-6 max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-6xl"
       >
         Sign Language <span className="text-primary">Converter</span>
