@@ -1,9 +1,11 @@
 import type { Session, TranscriptEntry } from "@/types/transcript";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "");
-
-if (!API_BASE) {
-  throw new Error("VITE_API_BASE_URL is not configured");
+function getApiBase(): string {
+  const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "");
+  if (!raw) {
+    throw new Error("VITE_API_BASE_URL is not configured");
+  }
+  return raw;
 }
 
 type ApiEnvelope<T> = {
@@ -19,7 +21,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${getApiBase()}${path}`, {
     ...init,
     headers,
   });
@@ -98,7 +100,7 @@ export async function deleteSession(sessionId: string) {
 }
 
 export async function downloadSessionPdf(sessionId: string, filename?: string) {
-  const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/pdf`);
+  const response = await fetch(`${getApiBase()}/api/sessions/${sessionId}/pdf`);
   if (!response.ok) {
     throw new Error(`PDF export failed with status ${response.status}`);
   }
