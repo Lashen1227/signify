@@ -35,14 +35,17 @@ import { TranscriptPanel } from "@/components/TranscriptPanel";
 import { CommandPalette, PaletteIcons } from "@/components/CommandPalette";
 import { useCamera } from "@/hooks/useCamera";
 import { useConversationSession } from "@/hooks/useConversationSession";
-import { copyTranscript, downloadPdf, downloadText, formatDuration } from "@/services/exportService";
+import {
+  copyTranscript,
+  downloadPdf,
+  downloadText,
+  formatDuration,
+} from "@/services/exportService";
 import { LANGUAGES } from "@/types/transcript";
+import { useAuth } from "@/providers/AuthProvider";
 
-type Props = {
-  onExit: () => void;
-};
-
-export function Dashboard({ onExit }: Props) {
+export function Dashboard() {
+  const { signOut } = useAuth();
   const [language, setLanguage] = useState("en");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -80,7 +83,10 @@ export function Dashboard({ onExit }: Props) {
   }, [videoRef, cameraEnabled]);
 
   const t = useConversationSession(language, captureFrame);
-  const langLabel = useMemo(() => LANGUAGES.find((l) => l.code === language)?.label ?? language, [language]);
+  const langLabel = useMemo(
+    () => LANGUAGES.find((l) => l.code === language)?.label ?? language,
+    [language],
+  );
   const isQuotaWarning = useMemo(() => isQuotaError(t.error), [t.error]);
 
   const clearCountdown = useCallback(() => {
@@ -114,7 +120,9 @@ export function Dashboard({ onExit }: Props) {
       setCameraPrompt(null);
       const enabledNow = await enableCamera(deviceId);
       if (!enabledNow) {
-        toast.error("Camera is off", { description: "Enable the camera before resuming translation." });
+        toast.error("Camera is off", {
+          description: "Enable the camera before resuming translation.",
+        });
         return;
       }
     }
@@ -125,8 +133,12 @@ export function Dashboard({ onExit }: Props) {
 
   const startWithCountdown = useCallback(() => {
     if (!cameraEnabled) {
-      setCameraPrompt("Enable the camera first, then press Start to begin sign language detection.");
-      toast.error("Camera is off", { description: "Enable the camera to start sign language detection." });
+      setCameraPrompt(
+        "Enable the camera first, then press Start to begin sign language detection.",
+      );
+      toast.error("Camera is off", {
+        description: "Enable the camera to start sign language detection.",
+      });
       return;
     }
 
@@ -167,7 +179,9 @@ export function Dashboard({ onExit }: Props) {
     clearCountdown();
     const session = await t.stop();
     if (session) {
-      toast.success("Session saved", { description: `${session.entries.length} entries captured.` });
+      toast.success("Session saved", {
+        description: `${session.entries.length} entries captured.`,
+      });
     }
   };
 
@@ -178,7 +192,13 @@ export function Dashboard({ onExit }: Props) {
   };
 
   const actions = [
-    { id: "start", group: "Session" as const, label: "Start session", icon: PaletteIcons.Play, onSelect: t.start },
+    {
+      id: "start",
+      group: "Session" as const,
+      label: "Start session",
+      icon: PaletteIcons.Play,
+      onSelect: t.start,
+    },
     {
       id: "pause",
       group: "Session" as const,
@@ -186,8 +206,20 @@ export function Dashboard({ onExit }: Props) {
       icon: t.status === "paused" ? PaletteIcons.Play : PaletteIcons.Pause,
       onSelect: t.status === "paused" ? handleResume : t.pause,
     },
-    { id: "stop", group: "Session" as const, label: "Stop session", icon: PaletteIcons.Square, onSelect: handleStop },
-    { id: "clear", group: "Session" as const, label: "Clear transcript", icon: PaletteIcons.Trash2, onSelect: handleClear },
+    {
+      id: "stop",
+      group: "Session" as const,
+      label: "Stop session",
+      icon: PaletteIcons.Square,
+      onSelect: handleStop,
+    },
+    {
+      id: "clear",
+      group: "Session" as const,
+      label: "Clear transcript",
+      icon: PaletteIcons.Trash2,
+      onSelect: handleClear,
+    },
     {
       id: "pdf",
       group: "Export" as const,
@@ -221,7 +253,7 @@ export function Dashboard({ onExit }: Props) {
         <div>
           <h5 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h5>
         </div>
-        <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
+        <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5">
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </Button>
       </div>
@@ -232,8 +264,9 @@ export function Dashboard({ onExit }: Props) {
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
               <p className="font-semibold">Gemini quota reached</p>
               <p className="mt-1 text-amber-100/80">
-                Translation is paused because the API is rate limited. The app will skip static frames and wait for
-                quota to recover. Try again later or increase the Gemini project quota.
+                Translation is paused because the API is rate limited. The app will skip static
+                frames and wait for quota to recover. Try again later or increase the Gemini project
+                quota.
               </p>
             </div>
           ) : null}
@@ -266,7 +299,12 @@ export function Dashboard({ onExit }: Props) {
             onClear={handleClear}
             hasEntries={t.entries.length > 0}
           />
-          <StatsCards elapsedMs={t.elapsedMs} words={t.words} signs={t.signs} confidence={t.confidence} />
+          <StatsCards
+            elapsedMs={t.elapsedMs}
+            words={t.words}
+            signs={t.signs}
+            confidence={t.confidence}
+          />
         </div>
 
         <div className="space-y-6 lg:col-span-2">
@@ -326,7 +364,13 @@ function StatsCards({
   );
 }
 
-function ExportActions({ entries, languageLabel }: { entries: Parameters<typeof copyTranscript>[0]; languageLabel: string }) {
+function ExportActions({
+  entries,
+  languageLabel,
+}: {
+  entries: Parameters<typeof copyTranscript>[0];
+  languageLabel: string;
+}) {
   const empty = entries.length === 0;
 
   const handlePdf = () => {
@@ -358,15 +402,27 @@ function ExportActions({ entries, languageLabel }: { entries: Parameters<typeof 
         <Button onClick={handlePdf} disabled={empty} className="justify-start gap-2">
           <Download className="h-4 w-4" /> Download PDF
         </Button>
-        <Button onClick={handleTxt} variant="outline" disabled={empty} className="justify-start gap-2">
+        <Button
+          onClick={handleTxt}
+          variant="outline"
+          disabled={empty}
+          className="justify-start gap-2"
+        >
           <Download className="h-4 w-4" /> Download TXT
         </Button>
-        <Button onClick={handleCopy} variant="ghost" disabled={empty} className="justify-start gap-2">
+        <Button
+          onClick={handleCopy}
+          variant="ghost"
+          disabled={empty}
+          className="justify-start gap-2"
+        >
           <Copy className="h-4 w-4" /> Copy transcript
         </Button>
       </div>
       {empty && (
-        <p className="mt-3 text-xs text-muted-foreground">No entries yet - start a session to enable exports.</p>
+        <p className="mt-3 text-xs text-muted-foreground">
+          No entries yet - start a session to enable exports.
+        </p>
       )}
     </Card>
   );
