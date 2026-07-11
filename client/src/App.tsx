@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Languages, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,11 @@ import { useAuth } from "@/providers/AuthProvider";
 
 export function App() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [view, setView] = useState<"landing" | "dashboard">("landing");
+
+  useEffect(() => {
+    if (isAuthenticated) setView("dashboard");
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -22,15 +28,21 @@ export function App() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <Navbar />
-      <main>{isAuthenticated ? <Dashboard /> : <Landing />}</main>
+      <Navbar onLogoClick={() => setView("landing")} />
+      <main>
+        {isAuthenticated && view === "dashboard" ? (
+          <Dashboard onExit={() => setView("landing")} />
+        ) : (
+          <Landing onStart={() => setView("dashboard")} />
+        )}
+      </main>
       <Toaster richColors position="top-right" />
     </div>
   );
 }
 
-function Landing() {
-  const { signIn } = useAuth();
+function Landing({ onStart }: { onStart: () => void }) {
+  const { isAuthenticated, signIn } = useAuth();
 
   const features = [
     {
@@ -86,8 +98,8 @@ function Landing() {
         transition={{ duration: 0.45, delay: 0.18 }}
         className="mt-8 flex flex-wrap items-center justify-center gap-3"
       >
-        <Button size="lg" onClick={signIn} className="h-12 gap-2 px-6 text-base shadow-glow">
-          Sign In to Start
+        <Button size="lg" onClick={() => (isAuthenticated ? onStart() : signIn())} className="h-12 gap-2 px-6 text-base shadow-glow">
+          {isAuthenticated ? "Go to Dashboard" : "Sign In to Start"}
           <ArrowRight className="h-4 w-4" />
         </Button>
       </motion.div>

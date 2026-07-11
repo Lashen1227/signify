@@ -42,10 +42,12 @@ import {
   formatDuration,
 } from "@/services/exportService";
 import { LANGUAGES } from "@/types/transcript";
-import { useAuth } from "@/providers/AuthProvider";
 
-export function Dashboard() {
-  const { signOut } = useAuth();
+type Props = {
+  onExit: () => void;
+};
+
+export function Dashboard({ onExit }: Props) {
   const [language, setLanguage] = useState("en");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -253,7 +255,7 @@ export function Dashboard() {
         <div>
           <h5 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h5>
         </div>
-        <Button variant="ghost" size="sm" onClick={signOut} className="gap-1.5">
+        <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
           <ArrowLeft className="h-3.5 w-3.5" /> Back
         </Button>
       </div>
