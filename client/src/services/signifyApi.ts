@@ -3,7 +3,7 @@ import type { Session, TranscriptEntry } from "@/types/transcript";
 function getApiBase(): string {
   const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "");
   if (!raw) {
-    throw new Error("VITE_API_BASE_URL is not configured");
+    return "http://localhost:8787";
   }
   return raw;
 }

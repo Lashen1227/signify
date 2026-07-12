@@ -109,10 +109,10 @@ function AuthBridge({ children }: { children: React.ReactNode }) {
       isLoading: false,
       username: auth.state.displayName || auth.state.username || null,
       signIn: () => {
-        void auth.signIn();
+        auth.signIn().catch((e) => console.error("Sign-in failed:", e));
       },
       signOut: () => {
-        void auth.signOut();
+        auth.signOut().catch((e) => console.error("Sign-out failed:", e));
       },
       getIdToken: () => auth.getIDToken(),
     });
