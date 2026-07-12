@@ -1,24 +1,49 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Languages, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/Navbar";
 import { Dashboard } from "@/components/Dashboard";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function App() {
-  const [started, setStarted] = useState(false);
+  const { isAuthenticated, isLoading } = useAuth();
+  const [view, setView] = useState<"landing" | "dashboard">("landing");
+
+  useEffect(() => {
+    if (isAuthenticated) setView("dashboard");
+  }, [isAuthenticated]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-dvh bg-background">
-      <Navbar />
-      <main>{started ? <Dashboard onExit={() => setStarted(false)} /> : <Landing onStart={() => setStarted(true)} />}</main>
+      <Navbar onLogoClick={() => setView("landing")} />
+      <main>
+        {isAuthenticated && view === "dashboard" ? (
+          <Dashboard onExit={() => setView("landing")} />
+        ) : (
+          <Landing onStart={() => setView("dashboard")} />
+        )}
+      </main>
       <Toaster richColors position="top-right" />
     </div>
   );
 }
 
 function Landing({ onStart }: { onStart: () => void }) {
+  const { isAuthenticated, signIn } = useAuth();
+
   const features = [
     {
       icon: Zap,
@@ -73,8 +98,8 @@ function Landing({ onStart }: { onStart: () => void }) {
         transition={{ duration: 0.45, delay: 0.18 }}
         className="mt-8 flex flex-wrap items-center justify-center gap-3"
       >
-        <Button size="lg" onClick={onStart} className="h-12 gap-2 px-6 text-base shadow-glow">
-          Start Conversion
+        <Button size="lg" onClick={() => (isAuthenticated ? onStart() : signIn())} className="h-12 gap-2 px-6 text-base shadow-glow">
+          {isAuthenticated ? "Go to Dashboard" : "Sign In to Start"}
           <ArrowRight className="h-4 w-4" />
         </Button>
       </motion.div>
