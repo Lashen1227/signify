@@ -51,10 +51,10 @@ export async function startSession(language: string) {
   return data.session as Session;
 }
 
-export async function sendFrame(sessionId: string, image: string) {
+export async function sendFrame(sessionId: string, image: string, apiKey: string) {
   const data = await request<ApiEnvelope<{}>>(`/api/sessions/${sessionId}/frame`, {
     method: "POST",
-    body: JSON.stringify({ image }),
+    body: JSON.stringify({ image, apiKey }),
   });
   return data;
 }
@@ -114,4 +114,12 @@ export async function downloadSessionPdf(sessionId: string, filename?: string) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function validateApiKey(apiKey: string) {
+  const data = await request<{ valid: boolean; message: string }>("/api/validate-key", {
+    method: "POST",
+    body: JSON.stringify({ apiKey }),
+  });
+  return data;
 }
