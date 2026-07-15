@@ -13,10 +13,12 @@ The app is designed around a repeating capture loop:
 
 1. The user starts a session in the browser.
 2. The client captures a webcam frame every few seconds.
-3. The frame is sent to the backend.
-4. The backend asks Gemini to interpret the sign language gesture.
+3. The frame is sent to the backend along with the user's Gemini API key.
+4. The backend asks Gemini to interpret the sign language gesture using the user's key.
 5. The translated transcript entry is appended to the session and returned to the client.
 6. The UI updates in real time and can export the transcript later.
+
+Each user provides their own Gemini API key, which is stored in the browser and sent with each request. This eliminates shared quota limits and gives users full control over their API usage.
 
 ## System Diagram
 
@@ -24,9 +26,9 @@ The app is designed around a repeating capture loop:
 flowchart LR
   U[User] --> C[Client App]
   C --> CAM[Browser Camera API]
-  C -->|REST| S[Fastify Server]
+  C -->|REST + API Key| S[Fastify Server]
   S --> ST[Session Store<br/>data/sessions.json]
-  S --> G[Google Gemini API]
+  S -->|User's API Key| G[Google Gemini API]
   S --> PDF[PDFKit Export]
   C -->|Download PDF/TXT| FS[Local File Download]
 ```
@@ -37,21 +39,33 @@ The client lives under `client/src` and is responsible for presentation, user in
 
 ### Main client pieces
 
-- `client/src/routes/index.tsx`
+- `client/src/App.tsx`
   - Landing page and dashboard toggle.
+  - Manages API key dialog state and renders `ApiKeyDialog`.
   - Mounts the main app shell and toast notifications.
 - `client/src/components/Dashboard.tsx`
   - Central orchestration component for the live conversation experience.
   - Connects camera, session lifecycle, transcript display, export actions, and session history.
+  - Shows `ApiKeyGate` when no API key is configured.
+- `client/src/components/ApiKeyGate.tsx`
+  - Blocks dashboard access when no API key is configured.
+  - Prompts user to add their Gemini API key.
+- `client/src/components/ApiKeyDialog.tsx`
+  - Settings dialog for managing the user's Gemini API key.
+  - Supports save, validate, show/hide, and remove operations.
 - `client/src/hooks/useCamera.ts`
   - Requests webcam access through `navigator.mediaDevices`.
   - Handles device enumeration, camera enable/disable, and camera switching.
+- `client/src/hooks/useApiKey.ts`
+  - Manages API key state with localStorage persistence.
+  - Provides save, remove, validate, and isConfigured methods.
 - `client/src/hooks/useConversationSession.ts`
   - Owns the live session state machine.
   - Starts, pauses, resumes, stops, and clears a session.
-  - Periodically captures frames and sends them to the backend.
+  - Periodically captures frames and sends them to the backend with the user's API key.
 - `client/src/services/signifyApi.ts`
   - Wraps backend REST calls.
+  - Includes `validateApiKey()` for key validation.
 - `client/src/services/exportService.ts`
   - Builds client-side TXT/PDF exports and clipboard output.
 
@@ -149,10 +163,11 @@ The client talks to these endpoints:
 
 - `GET /health`
 - `GET /api/languages`
+- `POST /api/validate-key` — Validates a user-provided Gemini API key
 - `GET /api/sessions`
 - `POST /api/sessions`
 - `GET /api/sessions/:id`
-- `POST /api/sessions/:id/frame`
+- `POST /api/sessions/:id/frame` — Requires `image` and `apiKey` in body
 - `POST /api/sessions/:id/pause`
 - `POST /api/sessions/:id/resume`
 - `POST /api/sessions/:id/stop`
@@ -181,8 +196,8 @@ sequenceDiagram
 
   loop Every capture interval
     UI->>CAM: Capture frame from video element
-    UI->>API: POST /api/sessions/:id/frame { image }
-    API->>GEM: Send frame + prompt
+    UI->>API: POST /api/sessions/:id/frame { image, apiKey }
+    API->>GEM: Send frame + prompt (using user's API key)
     GEM-->>API: JSON analysis
     API->>DB: Append transcript entry
     DB-->>API: Updated session
@@ -245,7 +260,8 @@ Implemented in `server/src/pdf.ts` and exposed through `GET /api/sessions/:id/pd
 - The backend uses a **single-process JSON store**, not a database.
 - The client has **browser-only camera access**, so it must run in a browser context.
 - `SessionHistory` currently mixes server sessions with a localStorage-based fallback flow.
-- The backend assumes `GEMINI_API_KEY` is configured.
+- The backend requires a **user-provided Gemini API key** sent with each frame request. No server-side API key is used.
+- API keys are stored in the browser's `localStorage` under `signify:api-key` and never persisted on the server.
 - The client defaults to `http://localhost:8787` unless `VITE_API_BASE_URL` is set.
 
 ## Project Layout Summary

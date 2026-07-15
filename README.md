@@ -18,15 +18,25 @@ cd ../client && npm install
 
 ### Environment setup
 
-Copy the example env and add your Gemini API key:
+Copy the example env files:
 
 ```bash
 cp server/.env.example server/.env
+cp client/.env.example client/.env
 ```
 
-Then edit `server/.env` and set `GEMINI_API_KEY`.
+Edit `server/.env` to set `PORT`, `HOST`, and `CLIENT_ORIGIN` as needed. The AI API key is now managed per-user through the dashboard UI — no server-side `GEMINI_API_KEY` is required.
 
-If `GEMINI_API_KEY` is missing, the backend now returns a safe fallback transcript instead of a hard 500 error, so the app still runs end-to-end while you set up the key.
+Edit `client/.env` to configure Asgardeo auth and the API base URL.
+
+### API key configuration
+
+Users provide their own Google Gemini API key through the dashboard settings. This eliminates shared quota issues and gives each user full control over their API usage.
+
+1. Sign in to the app
+2. Click the settings icon in the navbar or dashboard
+3. Enter your Gemini API key (get one free at [Google AI Studio](https://aistudio.google.com/apikey))
+4. The key is stored in your browser's localStorage and never saved on the server
 
 ## Development
 
