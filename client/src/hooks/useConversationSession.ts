@@ -14,7 +14,11 @@ const RATE_LIMIT_COOLDOWN_MS = 5000;
 
 type CaptureFrame = () => string | Promise<string | null> | null;
 
-export function useConversationSession(language: string, captureFrame: CaptureFrame) {
+export function useConversationSession(
+  language: string,
+  captureFrame: CaptureFrame,
+  apiKey: string | null,
+) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<SessionStatus>("idle");
   const [entries, setEntries] = useState<TranscriptEntry[]>([]);
@@ -41,12 +45,16 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
   const captureAndSend = useCallback(async () => {
     if (!sessionId || status !== "recording" || processing) return;
     if (Date.now() < cooldownUntilRef.current) return;
+    if (!apiKey) {
+      setError("No API key configured. Please add your Gemini API key in settings.");
+      return;
+    }
     const image = await captureFrame();
     if (!image) return;
 
     try {
       setProcessing(true);
-      const result = await sendFrame(sessionId, image);
+      const result = await sendFrame(sessionId, image, apiKey);
       if (result.session) {
         setEntries(result.session.entries ?? []);
         setElapsedMs(result.session.durationMs ?? elapsedMs);
@@ -64,7 +72,7 @@ export function useConversationSession(language: string, captureFrame: CaptureFr
     } finally {
       setProcessing(false);
     }
-  }, [captureFrame, elapsedMs, processing, sessionId, status]);
+  }, [apiKey, captureFrame, elapsedMs, processing, sessionId, status]);
 
   useEffect(() => {
     if (status !== "recording" || !sessionId) return;

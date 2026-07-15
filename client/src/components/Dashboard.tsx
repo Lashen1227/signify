@@ -11,6 +11,7 @@ import {
   Hand,
   Pause,
   Play,
+  Settings,
   Square,
   Trash2,
   Type,
@@ -35,6 +36,7 @@ import { TranscriptPanel } from "@/components/TranscriptPanel";
 import { CommandPalette, PaletteIcons } from "@/components/CommandPalette";
 import { useCamera } from "@/hooks/useCamera";
 import { useConversationSession } from "@/hooks/useConversationSession";
+import { ApiKeyGate } from "@/components/ApiKeyGate";
 import {
   copyTranscript,
   downloadPdf,
@@ -43,11 +45,23 @@ import {
 } from "@/services/exportService";
 import { LANGUAGES } from "@/types/transcript";
 
-type Props = {
-  onExit: () => void;
+type ApiKeyState = {
+  apiKey: string | null;
+  isConfigured: boolean;
+  isValid: boolean | null;
+  isValidating: boolean;
+  saveKey: (key: string) => Promise<boolean>;
+  removeKey: () => void;
+  validate: (key?: string) => Promise<boolean>;
 };
 
-export function Dashboard({ onExit }: Props) {
+type Props = {
+  onExit: () => void;
+  onOpenSettings: () => void;
+  apiKeyState: ApiKeyState;
+};
+
+export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
   const [language, setLanguage] = useState("en");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -84,7 +98,7 @@ export function Dashboard({ onExit }: Props) {
     return canvas.toDataURL("image/jpeg", 0.8);
   }, [videoRef, cameraEnabled]);
 
-  const t = useConversationSession(language, captureFrame);
+  const t = useConversationSession(language, captureFrame, apiKeyState.apiKey);
   const langLabel = useMemo(
     () => LANGUAGES.find((l) => l.code === language)?.label ?? language,
     [language],
@@ -251,74 +265,89 @@ export function Dashboard({ onExit }: Props) {
       transition={{ duration: 0.35 }}
       className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6"
     >
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h5 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h5>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </Button>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-5">
-        <div className="space-y-6 lg:col-span-3">
-          {isQuotaWarning && t.error ? (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              <p className="font-semibold">Gemini quota reached</p>
-              <p className="mt-1 text-amber-100/80">
-                Translation is paused because the API is rate limited. The app will skip static
-                frames and wait for quota to recover. Try again later or increase the Gemini project
-                quota.
-              </p>
+      {!apiKeyState.isConfigured ? (
+        <ApiKeyGate onOpenSettings={onOpenSettings} />
+      ) : (
+        <>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h5 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h5>
             </div>
-          ) : null}
-          <CameraFeed
-            recording={t.status === "recording"}
-            processing={t.processing}
-            countdown={countdown}
-            cameraPrompt={cameraPrompt}
-            videoRef={videoRef}
-            devices={devices}
-            deviceId={deviceId}
-            enabled={cameraEnabled}
-            error={cameraError}
-            enable={enableCamera}
-            disable={handleDisableCamera}
-            switchDevice={switchDevice}
-          />
-          {t.error && !isQuotaWarning && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
-              {t.error}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onOpenSettings}
+                className="gap-1.5"
+              >
+                <Settings className="h-3.5 w-3.5" /> API Key
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
+                <ArrowLeft className="h-3.5 w-3.5" /> Back
+              </Button>
             </div>
-          )}
-          <SessionActionsBar
-            status={t.status}
-            starting={countdown !== null}
-            onStart={startWithCountdown}
-            onPause={t.pause}
-            onResume={handleResume}
-            onStop={handleStop}
-            onClear={handleClear}
-            hasEntries={t.entries.length > 0}
-          />
-          <StatsCards
-            elapsedMs={t.elapsedMs}
-            words={t.words}
-            signs={t.signs}
-            confidence={t.confidence}
-          />
-        </div>
-
-        <div className="space-y-6 lg:col-span-2">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
-            <LanguageSelector value={language} onChange={setLanguage} />
           </div>
-          <TranscriptPanel entries={t.entries} processing={t.processing} />
-          <ExportActions entries={t.entries} languageLabel={langLabel} />
-        </div>
-      </div>
 
-      <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} actions={actions} />
+          <div className="grid gap-6 lg:grid-cols-5">
+            <div className="space-y-6 lg:col-span-3">
+              {isQuotaWarning && t.error ? (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                  <p className="font-semibold">API key issue</p>
+                  <p className="mt-1 text-amber-100/80">
+                    Translation is paused due to an API error. Your API key may be invalid or the
+                    quota may be exceeded. Check your key in API settings or try again later.
+                  </p>
+                </div>
+              ) : null}
+              <CameraFeed
+                recording={t.status === "recording"}
+                processing={t.processing}
+                countdown={countdown}
+                cameraPrompt={cameraPrompt}
+                videoRef={videoRef}
+                devices={devices}
+                deviceId={deviceId}
+                enabled={cameraEnabled}
+                error={cameraError}
+                enable={enableCamera}
+                disable={handleDisableCamera}
+                switchDevice={switchDevice}
+              />
+              {t.error && !isQuotaWarning && (
+                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+                  {t.error}
+                </div>
+              )}
+              <SessionActionsBar
+                status={t.status}
+                starting={countdown !== null}
+                onStart={startWithCountdown}
+                onPause={t.pause}
+                onResume={handleResume}
+                onStop={handleStop}
+                onClear={handleClear}
+                hasEntries={t.entries.length > 0}
+              />
+              <StatsCards
+                elapsedMs={t.elapsedMs}
+                words={t.words}
+                signs={t.signs}
+                confidence={t.confidence}
+              />
+            </div>
+
+            <div className="space-y-6 lg:col-span-2">
+              <div className="rounded-xl border border-border bg-card p-4 shadow-soft">
+                <LanguageSelector value={language} onChange={setLanguage} />
+              </div>
+              <TranscriptPanel entries={t.entries} processing={t.processing} />
+              <ExportActions entries={t.entries} languageLabel={langLabel} />
+            </div>
+          </div>
+
+          <CommandPalette open={paletteOpen} setOpen={setPaletteOpen} actions={actions} />
+        </>
+      )}
     </motion.section>
   );
 }
