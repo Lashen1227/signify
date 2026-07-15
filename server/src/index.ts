@@ -16,6 +16,7 @@ import {
 } from "./store.js";
 import { analyzeFrame } from "./gemini.js";
 import { createSessionPdf } from "./pdf.js";
+import type { ApiKeyValidation } from "./types.js";
 
 const app = Fastify({
   logger: true,
@@ -31,10 +32,11 @@ app.get("/", async () => ({
   health: "/health",
   docs: {
     languages: "GET /api/languages",
+    validateKey: "POST /api/validate-key { apiKey }",
     sessions: "GET /api/sessions",
     createSession: "POST /api/sessions { language }",
     getSession: "GET /api/sessions/:id",
-    sendFrame: "POST /api/sessions/:id/frame { image }",
+    sendFrame: "POST /api/sessions/:id/frame { image, apiKey }",
     pauseSession: "POST /api/sessions/:id/pause",
     resumeSession: "POST /api/sessions/:id/resume",
     stopSession: "POST /api/sessions/:id/stop { durationMs }",
@@ -57,6 +59,33 @@ app.get("/api/languages", async () => ({
     { code: "ja", label: "Japanese", flag: "🇯🇵" },
   ],
 }));
+
+app.post("/api/validate-key", async (request, reply) => {
+  const body = z.object({ apiKey: z.string().min(1) }).parse(request.body);
+
+  try {
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models",
+      {
+        method: "GET",
+        headers: { "x-goog-api-key": body.apiKey },
+      },
+    );
+
+    if (response.ok) {
+      return { valid: true, message: "API key is valid" } satisfies ApiKeyValidation;
+    }
+
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { message?: string };
+    } | null;
+    const reason = payload?.error?.message ?? `Request failed with status ${response.status}`;
+    return { valid: false, message: reason } satisfies ApiKeyValidation;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not reach Gemini API";
+    return { valid: false, message } satisfies ApiKeyValidation;
+  }
+});
 
 app.get("/api/sessions", async () => {
   return { sessions: await listSessions() };
@@ -81,6 +110,7 @@ app.post("/api/sessions/:id/frame", async (request, reply) => {
   const params = z.object({ id: z.string().min(1) }).parse(request.params);
   const body = z.object({
     image: z.string().min(1),
+    apiKey: z.string().min(1),
   }).parse(request.body);
 
   const session = await getSession(params.id);
@@ -92,7 +122,7 @@ app.post("/api/sessions/:id/frame", async (request, reply) => {
     return reply.code(409).send({ message: "Session is not recording" });
   }
 
-  const analysis = await analyzeFrame(body.image, session.language);
+  const analysis = await analyzeFrame(body.image, session.language, body.apiKey);
   const entry = {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
