@@ -91,7 +91,7 @@ function Landing({ onStart }: { onStart: () => void }) {
         className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft"
       >
         <span className="h-1.5 w-1.5 rounded-full bg-success" />
-        Powered by Gemini
+        Powered by AI
       </motion.span>
 
       <motion.h1
