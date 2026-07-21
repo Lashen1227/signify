@@ -55,7 +55,7 @@ type ApiKeyState = {
   isValidating: boolean;
   saveKey: (key: string) => Promise<boolean>;
   removeKey: () => void;
-  validate: (key?: string) => Promise<boolean>;
+  markInvalid: () => void;
 };
 
 type Props = {
@@ -174,6 +174,14 @@ export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
   }, [cameraEnabled, deviceId, enableCamera, t]);
 
   const startWithCountdown = useCallback(() => {
+    if (!apiKeyState.isConfigured) {
+      toast.error("API key required", {
+        description: "Add your Gemini API key in settings before starting translation.",
+      });
+      onOpenSettings();
+      return;
+    }
+
     if (!cameraEnabled) {
       setCameraPrompt(
         "Enable the camera first, then press Start to begin sign language detection.",
@@ -205,7 +213,7 @@ export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
         return current - 1;
       });
     }, 1000);
-  }, [clearCountdown, countdown, t]);
+  }, [apiKeyState.isConfigured, clearCountdown, countdown, onOpenSettings, t]);
 
   useEffect(() => {
     return () => clearCountdown();
@@ -298,7 +306,6 @@ export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
             <p className="font-semibold">Set up your API key</p>
             <p className="mt-1 text-amber-100/80">
               To start translating sign language, add your own Google Gemini API key in the settings.
-              This ensures you have full control over your API usage and quota.
             </p>
             <div className="mt-3 flex gap-2">
               <Button

@@ -22,8 +22,13 @@ const app = Fastify({
   logger: true,
 });
 
+const allowedOrigins = process.env.CLIENT_ORIGIN
+  ?.split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+
 await app.register(cors, {
-  origin: process.env.CLIENT_ORIGIN?.split(",").map((value) => value.trim()) ?? true,
+  origin: allowedOrigins && allowedOrigins.length > 0 ? allowedOrigins : true,
 });
 
 app.get("/", async () => ({
@@ -64,25 +69,35 @@ app.post("/api/validate-key", async (request, reply) => {
   const body = z.object({ apiKey: z.string().min(1) }).parse(request.body);
 
   try {
+    const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models",
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
-        method: "GET",
-        headers: { "x-goog-api-key": body.apiKey },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": body.apiKey,
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: "Reply with only the word OK" }] }],
+          generationConfig: { maxOutputTokens: 5 },
+        }),
       },
     );
+
+    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
     if (response.ok) {
       return { valid: true, message: "API key is valid" } satisfies ApiKeyValidation;
     }
 
-    const payload = (await response.json().catch(() => null)) as {
-      error?: { message?: string };
-    } | null;
-    const reason = payload?.error?.message ?? `Request failed with status ${response.status}`;
+    const errorPayload = payload as { error?: { message?: string; status?: string } } | null;
+    const reason = errorPayload?.error?.message ?? `Request failed with status ${response.status}`;
+    console.error(`[validate-key] status=${response.status} reason=${reason}`);
     return { valid: false, message: reason } satisfies ApiKeyValidation;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not reach Gemini API";
+    console.error(`[validate-key] catch: ${message}`);
     return { valid: false, message } satisfies ApiKeyValidation;
   }
 });
@@ -186,8 +201,8 @@ app.get("/api/sessions/:id/pdf", async (request, reply) => {
   return reply.send(stream);
 });
 
-const port = Number(process.env.PORT ?? 8787);
-const host = process.env.HOST ?? "0.0.0.0";
+const port = Number(process.env.PORT) || 8787;
+const host = process.env.HOST || "0.0.0.0";
 
 try {
   await app.listen({ port, host });

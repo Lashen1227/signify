@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { validateApiKey } from "@/services/signifyApi";
 
 const STORAGE_KEY = "signify:api-key";
 
@@ -19,46 +18,19 @@ export function useApiKey() {
 
   const isConfigured = apiKey !== null && apiKey.length > 0;
 
-  const validate = useCallback(
-    async (key?: string): Promise<boolean> => {
-      const target = key ?? apiKey;
-      if (!target) {
-        setIsValid(false);
-        return false;
-      }
+  const saveKey = useCallback(async (key: string): Promise<boolean> => {
+    const trimmed = key.trim();
+    if (!trimmed) return false;
 
-      setIsValidating(true);
-      try {
-        const result = await validateApiKey(target);
-        setIsValid(result.valid);
-        return result.valid;
-      } catch {
-        setIsValid(false);
-        return false;
-      } finally {
-        setIsValidating(false);
-      }
-    },
-    [apiKey],
-  );
-
-  const saveKey = useCallback(
-    async (key: string): Promise<boolean> => {
-      const trimmed = key.trim();
-      if (!trimmed) return false;
-
-      setApiKey(trimmed);
-      try {
-        localStorage.setItem(STORAGE_KEY, trimmed);
-      } catch {
-        // localStorage may be full or unavailable
-      }
-
-      const valid = await validate(trimmed);
-      return valid;
-    },
-    [validate],
-  );
+    setApiKey(trimmed);
+    setIsValid(true);
+    try {
+      localStorage.setItem(STORAGE_KEY, trimmed);
+    } catch {
+      // localStorage may be full or unavailable
+    }
+    return true;
+  }, []);
 
   const removeKey = useCallback(() => {
     setApiKey(null);
@@ -70,11 +42,9 @@ export function useApiKey() {
     }
   }, []);
 
-  useEffect(() => {
-    if (isConfigured && isValid === null) {
-      void validate();
-    }
-  }, [isConfigured, isValid, validate]);
+  const markInvalid = useCallback(() => {
+    setIsValid(false);
+  }, []);
 
   return {
     apiKey,
@@ -83,6 +53,6 @@ export function useApiKey() {
     isValidating,
     saveKey,
     removeKey,
-    validate,
+    markInvalid,
   };
 }

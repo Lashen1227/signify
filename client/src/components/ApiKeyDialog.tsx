@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Eye, EyeOff, Key, Loader2, ShieldCheck, ShieldX } from "lucide-react";
+import { Eye, EyeOff, Key, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,21 +15,11 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isConfigured: boolean;
-  isValid: boolean | null;
-  isValidating: boolean;
   onSave: (key: string) => Promise<boolean>;
   onRemove: () => void;
 };
 
-export function ApiKeyDialog({
-  open,
-  onOpenChange,
-  isConfigured,
-  isValid,
-  isValidating,
-  onSave,
-  onRemove,
-}: Props) {
+export function ApiKeyDialog({ open, onOpenChange, isConfigured, onSave, onRemove }: Props) {
   const [input, setInput] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,17 +28,13 @@ export function ApiKeyDialog({
     if (!input.trim()) return;
     setSaving(true);
     try {
-      const valid = await onSave(input.trim());
-      if (valid) {
-        toast.success("API key saved and validated");
+      const success = await onSave(input.trim());
+      if (success) {
+        toast.success("API key saved");
         setInput("");
-      } else {
-        toast.error("API key is invalid", {
-          description: "Please check your key and try again.",
-        });
       }
     } catch {
-      toast.error("Could not validate API key");
+      toast.error("Could not save API key");
     } finally {
       setSaving(false);
     }
@@ -86,33 +72,9 @@ export function ApiKeyDialog({
 
         <div className="space-y-4">
           {isConfigured && (
-            <div
-              className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
-                isValid === true
-                  ? "border-green-500/30 bg-green-500/10 text-green-400"
-                  : isValid === false
-                    ? "border-red-500/30 bg-red-500/10 text-red-400"
-                    : "border-border bg-muted/50 text-muted-foreground"
-              }`}
-            >
-              {isValidating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isValid === true ? (
-                <ShieldCheck className="h-4 w-4" />
-              ) : isValid === false ? (
-                <ShieldX className="h-4 w-4" />
-              ) : (
-                <Key className="h-4 w-4" />
-              )}
-              <span>
-                {isValidating
-                  ? "Validating key..."
-                  : isValid === true
-                    ? "API key is configured and valid"
-                    : isValid === false
-                      ? "API key is invalid or expired"
-                      : "API key is configured"}
-              </span>
+            <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
+              <ShieldCheck className="h-4 w-4" />
+              <span>API key is configured</span>
             </div>
           )}
 
@@ -128,7 +90,7 @@ export function ApiKeyDialog({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="AIza..."
+                  placeholder="Enter your API key"
                   className="h-10 w-full rounded-lg border border-border bg-background px-3 pr-10 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                 />
                 <button
@@ -139,15 +101,8 @@ export function ApiKeyDialog({
                   {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <Button
-                onClick={() => void handleSave()}
-                disabled={!input.trim() || saving}
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Save"
-                )}
+              <Button onClick={() => void handleSave()} disabled={!input.trim() || saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
             </div>
           </div>

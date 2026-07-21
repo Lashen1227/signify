@@ -51,8 +51,6 @@ export function App() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         isConfigured={apiKeyState.isConfigured}
-        isValid={apiKeyState.isValid}
-        isValidating={apiKeyState.isValidating}
         onSave={apiKeyState.saveKey}
         onRemove={apiKeyState.removeKey}
       />

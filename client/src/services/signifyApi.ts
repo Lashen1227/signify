@@ -115,11 +115,3 @@ export async function downloadSessionPdf(sessionId: string, filename?: string) {
   a.remove();
   URL.revokeObjectURL(url);
 }
-
-export async function validateApiKey(apiKey: string) {
-  const data = await request<{ valid: boolean; message: string }>("/api/validate-key", {
-    method: "POST",
-    body: JSON.stringify({ apiKey }),
-  });
-  return data;
-}
