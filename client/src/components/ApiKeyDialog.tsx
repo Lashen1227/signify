@@ -17,9 +17,11 @@ type Props = {
   isConfigured: boolean;
   onSave: (key: string) => Promise<boolean>;
   onRemove: () => void;
+  isValidating: boolean;
+  validationError: string | null;
 };
 
-export function ApiKeyDialog({ open, onOpenChange, isConfigured, onSave, onRemove }: Props) {
+export function ApiKeyDialog({ open, onOpenChange, isConfigured, onSave, onRemove, isValidating, validationError }: Props) {
   const [input, setInput] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,13 +34,15 @@ export function ApiKeyDialog({ open, onOpenChange, isConfigured, onSave, onRemov
       if (success) {
         toast.success("API key saved");
         setInput("");
+      } else if (validationError) {
+        toast.error(validationError);
       }
     } catch {
       toast.error("Could not save API key");
     } finally {
       setSaving(false);
     }
-  }, [input, onSave]);
+  }, [input, onSave, validationError]);
 
   const handleRemove = useCallback(() => {
     onRemove();
@@ -101,11 +105,17 @@ export function ApiKeyDialog({ open, onOpenChange, isConfigured, onSave, onRemov
                   {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <Button onClick={() => void handleSave()} disabled={!input.trim() || saving}>
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+              <Button onClick={() => void handleSave()} disabled={!input.trim() || saving || isValidating}>
+                {saving || isValidating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
               </Button>
             </div>
           </div>
+
+          {validationError && !saving && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {validationError}
+            </div>
+          )}
 
           <div className="text-xs text-muted-foreground">
             Get your free API key at{" "}

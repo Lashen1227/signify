@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { validateApiKey } from "@/services/signifyApi";
 
 const STORAGE_KEY = "signify:api-key";
 
@@ -15,6 +16,7 @@ export function useApiKey() {
   const [apiKey, setApiKey] = useState<string | null>(readStoredKey);
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [isValidating, setIsValidating] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const isConfigured = apiKey !== null && apiKey.length > 0;
 
@@ -22,14 +24,32 @@ export function useApiKey() {
     const trimmed = key.trim();
     if (!trimmed) return false;
 
-    setApiKey(trimmed);
-    setIsValid(true);
+    setIsValidating(true);
+    setValidationError(null);
     try {
-      localStorage.setItem(STORAGE_KEY, trimmed);
+      const result = await validateApiKey(trimmed);
+      if (result.valid) {
+        setApiKey(trimmed);
+        setIsValid(true);
+        setValidationError(null);
+        try {
+          localStorage.setItem(STORAGE_KEY, trimmed);
+        } catch {
+          // localStorage may be full or unavailable
+        }
+        return true;
+      } else {
+        setIsValid(false);
+        setValidationError(result.message);
+        return false;
+      }
     } catch {
-      // localStorage may be full or unavailable
+      setIsValid(false);
+      setValidationError("Could not reach validation server");
+      return false;
+    } finally {
+      setIsValidating(false);
     }
-    return true;
   }, []);
 
   const removeKey = useCallback(() => {
@@ -51,6 +71,7 @@ export function useApiKey() {
     isConfigured,
     isValid,
     isValidating,
+    validationError,
     saveKey,
     removeKey,
     markInvalid,

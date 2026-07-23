@@ -1,5 +1,10 @@
 import type { Session, TranscriptEntry } from "@/types/transcript";
 
+export type ApiKeyValidation = {
+  valid: boolean;
+  message: string;
+};
+
 function getApiBase(): string {
   const raw = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "");
   if (!raw) {
@@ -41,6 +46,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+export async function validateApiKey(apiKey: string): Promise<ApiKeyValidation> {
+  return request<ApiKeyValidation>("/api/validate-key", {
+    method: "POST",
+    body: JSON.stringify({ apiKey }),
+  });
 }
 
 export async function startSession(language: string) {

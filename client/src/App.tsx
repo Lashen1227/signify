@@ -53,6 +53,8 @@ export function App() {
         isConfigured={apiKeyState.isConfigured}
         onSave={apiKeyState.saveKey}
         onRemove={apiKeyState.removeKey}
+        isValidating={apiKeyState.isValidating}
+        validationError={apiKeyState.validationError}
       />
       <Toaster richColors position="top-right" />
     </div>
