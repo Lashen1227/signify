@@ -53,6 +53,7 @@ type ApiKeyState = {
   isConfigured: boolean;
   isValid: boolean | null;
   isValidating: boolean;
+  validationError: string | null;
   saveKey: (key: string) => Promise<boolean>;
   removeKey: () => void;
   markInvalid: () => void;
@@ -124,12 +125,14 @@ export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
     return canvas.toDataURL("image/jpeg", 0.8);
   }, [videoRef, cameraEnabled]);
 
-  const t = useConversationSession(language, captureFrame, apiKeyState.apiKey);
+  const t = useConversationSession(language, captureFrame, apiKeyState.apiKey, apiKeyState.markInvalid);
   const langLabel = useMemo(
     () => LANGUAGES.find((l) => l.code === language)?.label ?? language,
     [language],
   );
   const isQuotaWarning = useMemo(() => isQuotaError(t.error), [t.error]);
+  const isAuthFailure = useMemo(() => isAuthKeyError(t.error), [t.error]);
+  const showApiKeyIssue = isQuotaWarning || isAuthFailure;
 
   const clearCountdown = useCallback(() => {
     if (countdownTimerRef.current) {
@@ -358,7 +361,7 @@ export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
-          {isQuotaWarning && t.error ? (
+          {showApiKeyIssue && t.error ? (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
               <p className="font-semibold">API key issue</p>
               <p className="mt-1 text-amber-100/80">
@@ -381,7 +384,7 @@ export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
             disable={handleDisableCamera}
             switchDevice={switchDevice}
           />
-          {t.error && !isQuotaWarning && (
+          {t.error && !showApiKeyIssue && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
               {t.error}
             </div>
@@ -646,5 +649,18 @@ function isQuotaError(message: string | null) {
     normalized.includes("rate limit") ||
     normalized.includes("resource_exhausted") ||
     normalized.includes("429")
+  );
+}
+
+function isAuthKeyError(message: string | null) {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("api_key_invalid") ||
+    normalized.includes("api key not valid") ||
+    normalized.includes("invalid api key") ||
+    normalized.includes("permission_denied") ||
+    normalized.includes("401") ||
+    normalized.includes("403")
   );
 }

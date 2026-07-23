@@ -18,6 +18,7 @@ export function useConversationSession(
   language: string,
   captureFrame: CaptureFrame,
   apiKey: string | null,
+  markInvalid?: () => void,
 ) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [status, setStatus] = useState<SessionStatus>("idle");
@@ -66,6 +67,9 @@ export function useConversationSession(
     } catch (err) {
       const message = err instanceof Error ? err.message : "Frame upload failed";
       setError(message);
+      if (isAuthError(message) && markInvalid) {
+        markInvalid();
+      }
       if (isRateLimitError(message)) {
         cooldownUntilRef.current = Date.now() + RATE_LIMIT_COOLDOWN_MS;
       }
@@ -197,5 +201,17 @@ function isRateLimitError(message: string) {
     normalized.includes("rate limit") ||
     normalized.includes("quota exceeded") ||
     normalized.includes("429")
+  );
+}
+
+function isAuthError(message: string) {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("api_key_invalid") ||
+    normalized.includes("api key not valid") ||
+    normalized.includes("invalid api key") ||
+    normalized.includes("permission_denied") ||
+    normalized.includes("401") ||
+    normalized.includes("403")
   );
 }

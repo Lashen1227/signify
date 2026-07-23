@@ -47,7 +47,7 @@ export async function analyzeFrame(
     return await requestGeminiAnalysis(endpoint, apiKey, prompt, imageInput, targetLanguage);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Gemini analysis failed";
-    if (message.includes("No API key provided")) {
+    if (message.includes("No API key provided") || isAuthError(message)) {
       throw error;
     }
     return createFallbackAnalysis(targetLanguage, message);
@@ -153,6 +153,20 @@ async function requestGeminiAnalysis(
   }
 
   throw new Error(`Gemini request failed after ${maxAttempts} attempts`);
+}
+
+function isAuthError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("api_key_invalid") ||
+    lower.includes("api key not valid") ||
+    lower.includes("permission_denied") ||
+    lower.includes("invalid api key") ||
+    lower.includes("http 401") ||
+    lower.includes("http 403") ||
+    lower.includes("status 401") ||
+    lower.includes("status 403")
+  );
 }
 
 function createFallbackAnalysis(targetLanguage: string, reason: string): GeminiAnalysis {
