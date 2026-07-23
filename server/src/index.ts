@@ -70,20 +70,29 @@ app.post("/api/validate-key", async (request, reply) => {
 
   try {
     const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": body.apiKey,
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    let response: Response;
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": body.apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "Reply with only the word OK" }] }],
+            generationConfig: { maxOutputTokens: 5 },
+          }),
+          signal: controller.signal,
         },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "Reply with only the word OK" }] }],
-          generationConfig: { maxOutputTokens: 5 },
-        }),
-      },
-    );
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
@@ -96,7 +105,12 @@ app.post("/api/validate-key", async (request, reply) => {
     console.error(`[validate-key] status=${response.status} reason=${reason}`);
     return { valid: false, message: reason } satisfies ApiKeyValidation;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not reach Gemini API";
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "Validation request timed out"
+        : error instanceof Error
+          ? error.message
+          : "Could not reach Gemini API";
     console.error(`[validate-key] catch: ${message}`);
     return { valid: false, message } satisfies ApiKeyValidation;
   }
