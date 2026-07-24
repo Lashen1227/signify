@@ -9,11 +9,14 @@ import {
   Download,
   FileText,
   Hand,
+  Key,
   Pause,
   Play,
+  Settings,
   Square,
   Trash2,
   Type,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -43,17 +46,55 @@ import {
 } from "@/services/exportService";
 import { LANGUAGES } from "@/types/transcript";
 
-type Props = {
-  onExit: () => void;
+const API_KEY_ALERT_SHOWN_KEY = "signify:api-key-alert-shown";
+
+type ApiKeyState = {
+  apiKey: string | null;
+  isConfigured: boolean;
+  isValid: boolean | null;
+  isValidating: boolean;
+  validationError: string | null;
+  saveKey: (key: string) => Promise<boolean>;
+  removeKey: () => void;
+  markInvalid: () => void;
 };
 
-export function Dashboard({ onExit }: Props) {
+type Props = {
+  onExit: () => void;
+  onOpenSettings: () => void;
+  apiKeyState: ApiKeyState;
+};
+
+export function Dashboard({ onExit, onOpenSettings, apiKeyState }: Props) {
   const [language, setLanguage] = useState("en");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [cameraPrompt, setCameraPrompt] = useState<string | null>(null);
   const previousMotionFrameRef = useRef<Uint8ClampedArray | null>(null);
   const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showApiKeyAlert, setShowApiKeyAlert] = useState(false);
+
+  useEffect(() => {
+    if (!apiKeyState.isConfigured) {
+      try {
+        const alreadyShown = localStorage.getItem(API_KEY_ALERT_SHOWN_KEY);
+        if (!alreadyShown) {
+          setShowApiKeyAlert(true);
+        }
+      } catch {
+        setShowApiKeyAlert(true);
+      }
+    }
+  }, [apiKeyState.isConfigured]);
+
+  const dismissApiKeyAlert = useCallback(() => {
+    setShowApiKeyAlert(false);
+    try {
+      localStorage.setItem(API_KEY_ALERT_SHOWN_KEY, "1");
+    } catch {
+      // Ignore
+    }
+  }, []);
 
   const {
     videoRef,
@@ -84,12 +125,14 @@ export function Dashboard({ onExit }: Props) {
     return canvas.toDataURL("image/jpeg", 0.8);
   }, [videoRef, cameraEnabled]);
 
-  const t = useConversationSession(language, captureFrame);
+  const t = useConversationSession(language, captureFrame, apiKeyState.apiKey, apiKeyState.markInvalid);
   const langLabel = useMemo(
     () => LANGUAGES.find((l) => l.code === language)?.label ?? language,
     [language],
   );
   const isQuotaWarning = useMemo(() => isQuotaError(t.error), [t.error]);
+  const isAuthFailure = useMemo(() => isAuthKeyError(t.error), [t.error]);
+  const showApiKeyIssue = isQuotaWarning || isAuthFailure;
 
   const clearCountdown = useCallback(() => {
     if (countdownTimerRef.current) {
@@ -134,6 +177,14 @@ export function Dashboard({ onExit }: Props) {
   }, [cameraEnabled, deviceId, enableCamera, t]);
 
   const startWithCountdown = useCallback(() => {
+    if (!apiKeyState.isConfigured) {
+      toast.error("API key required", {
+        description: "Add your Gemini API key in settings before starting translation.",
+      });
+      onOpenSettings();
+      return;
+    }
+
     if (!cameraEnabled) {
       setCameraPrompt(
         "Enable the camera first, then press Start to begin sign language detection.",
@@ -165,7 +216,7 @@ export function Dashboard({ onExit }: Props) {
         return current - 1;
       });
     }, 1000);
-  }, [clearCountdown, countdown, t]);
+  }, [apiKeyState.isConfigured, clearCountdown, countdown, onOpenSettings, t]);
 
   useEffect(() => {
     return () => clearCountdown();
@@ -251,24 +302,71 @@ export function Dashboard({ onExit }: Props) {
       transition={{ duration: 0.35 }}
       className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6"
     >
+      {showApiKeyAlert && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <Key className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+          <div className="flex-1">
+            <p className="font-semibold">Set up your API key</p>
+            <p className="mt-1 text-amber-100/80">
+              To start translating sign language, add your own Google Gemini API key in the settings.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => {
+                  dismissApiKeyAlert();
+                  onOpenSettings();
+                }}
+                className="h-8 gap-1.5 bg-amber-500 text-black hover:bg-amber-400"
+              >
+                <Settings className="h-3.5 w-3.5" /> Add API Key
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={dismissApiKeyAlert}
+                className="h-8 text-amber-100/80 hover:text-amber-100"
+              >
+                Dismiss
+              </Button>
+            </div>
+          </div>
+          <button
+            onClick={dismissApiKeyAlert}
+            className="shrink-0 text-amber-100/60 hover:text-amber-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h5 className="text-2xl font-semibold tracking-tight">Conversation Dashboard</h5>
         </div>
-        <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
-          <ArrowLeft className="h-3.5 w-3.5" /> Back
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenSettings}
+            className="gap-1.5"
+          >
+            <Settings className="h-3.5 w-3.5" /> API Key
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onExit} className="gap-1.5">
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-3">
-          {isQuotaWarning && t.error ? (
+          {showApiKeyIssue && t.error ? (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              <p className="font-semibold">Gemini quota reached</p>
+              <p className="font-semibold">API key issue</p>
               <p className="mt-1 text-amber-100/80">
-                Translation is paused because the API is rate limited. The app will skip static
-                frames and wait for quota to recover. Try again later or increase the Gemini project
-                quota.
+                Translation is paused due to an API error. Your API key may be invalid or the
+                quota may be exceeded. Check your key in API settings or try again later.
               </p>
             </div>
           ) : null}
@@ -286,7 +384,7 @@ export function Dashboard({ onExit }: Props) {
             disable={handleDisableCamera}
             switchDevice={switchDevice}
           />
-          {t.error && !isQuotaWarning && (
+          {t.error && !showApiKeyIssue && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
               {t.error}
             </div>
@@ -551,5 +649,18 @@ function isQuotaError(message: string | null) {
     normalized.includes("rate limit") ||
     normalized.includes("resource_exhausted") ||
     normalized.includes("429")
+  );
+}
+
+function isAuthKeyError(message: string | null) {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("api_key_invalid") ||
+    normalized.includes("api key not valid") ||
+    normalized.includes("invalid api key") ||
+    normalized.includes("permission_denied") ||
+    normalized.includes("401") ||
+    normalized.includes("403")
   );
 }

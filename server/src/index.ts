@@ -16,13 +16,19 @@ import {
 } from "./store.js";
 import { analyzeFrame } from "./gemini.js";
 import { createSessionPdf } from "./pdf.js";
+import type { ApiKeyValidation } from "./types.js";
 
 const app = Fastify({
   logger: true,
 });
 
+const allowedOrigins = process.env.CLIENT_ORIGIN
+  ?.split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
+
 await app.register(cors, {
-  origin: process.env.CLIENT_ORIGIN?.split(",").map((value) => value.trim()) ?? true,
+  origin: allowedOrigins && allowedOrigins.length > 0 ? allowedOrigins : true,
 });
 
 app.get("/", async () => ({
@@ -31,10 +37,11 @@ app.get("/", async () => ({
   health: "/health",
   docs: {
     languages: "GET /api/languages",
+    validateKey: "POST /api/validate-key { apiKey }",
     sessions: "GET /api/sessions",
     createSession: "POST /api/sessions { language }",
     getSession: "GET /api/sessions/:id",
-    sendFrame: "POST /api/sessions/:id/frame { image }",
+    sendFrame: "POST /api/sessions/:id/frame { image, apiKey }",
     pauseSession: "POST /api/sessions/:id/pause",
     resumeSession: "POST /api/sessions/:id/resume",
     stopSession: "POST /api/sessions/:id/stop { durationMs }",
@@ -57,6 +64,57 @@ app.get("/api/languages", async () => ({
     { code: "ja", label: "Japanese", flag: "🇯🇵" },
   ],
 }));
+
+app.post("/api/validate-key", async (request, reply) => {
+  const body = z.object({ apiKey: z.string().min(1) }).parse(request.body);
+
+  try {
+    const model = process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    let response: Response;
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": body.apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "Reply with only the word OK" }] }],
+            generationConfig: { maxOutputTokens: 5 },
+          }),
+          signal: controller.signal,
+        },
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+
+    if (response.ok) {
+      return { valid: true, message: "API key is valid" } satisfies ApiKeyValidation;
+    }
+
+    const errorPayload = payload as { error?: { message?: string; status?: string } } | null;
+    const reason = errorPayload?.error?.message ?? `Request failed with status ${response.status}`;
+    console.error(`[validate-key] status=${response.status} reason=${reason}`);
+    return { valid: false, message: reason } satisfies ApiKeyValidation;
+  } catch (error) {
+    const message =
+      error instanceof Error && error.name === "AbortError"
+        ? "Validation request timed out"
+        : error instanceof Error
+          ? error.message
+          : "Could not reach Gemini API";
+    console.error(`[validate-key] catch: ${message}`);
+    return { valid: false, message } satisfies ApiKeyValidation;
+  }
+});
 
 app.get("/api/sessions", async () => {
   return { sessions: await listSessions() };
@@ -81,6 +139,7 @@ app.post("/api/sessions/:id/frame", async (request, reply) => {
   const params = z.object({ id: z.string().min(1) }).parse(request.params);
   const body = z.object({
     image: z.string().min(1),
+    apiKey: z.string().min(1),
   }).parse(request.body);
 
   const session = await getSession(params.id);
@@ -92,7 +151,7 @@ app.post("/api/sessions/:id/frame", async (request, reply) => {
     return reply.code(409).send({ message: "Session is not recording" });
   }
 
-  const analysis = await analyzeFrame(body.image, session.language);
+  const analysis = await analyzeFrame(body.image, session.language, body.apiKey);
   const entry = {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
@@ -156,8 +215,8 @@ app.get("/api/sessions/:id/pdf", async (request, reply) => {
   return reply.send(stream);
 });
 
-const port = Number(process.env.PORT ?? 8787);
-const host = process.env.HOST ?? "0.0.0.0";
+const port = Number(process.env.PORT) || 8787;
+const host = process.env.HOST || "0.0.0.0";
 
 try {
   await app.listen({ port, host });

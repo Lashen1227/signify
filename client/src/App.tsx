@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/Navbar";
 import { Dashboard } from "@/components/Dashboard";
+import { ApiKeyDialog } from "@/components/ApiKeyDialog";
 import { useAuth } from "@/providers/AuthProvider";
+import { useApiKey } from "@/hooks/useApiKey";
 
 export function App() {
   const { isAuthenticated, isLoading } = useAuth();
   const [view, setView] = useState<"landing" | "dashboard">("landing");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const apiKeyState = useApiKey();
 
   useEffect(() => {
     if (isAuthenticated) setView("dashboard");
@@ -28,14 +32,30 @@ export function App() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <Navbar onLogoClick={() => setView("landing")} />
+      <Navbar
+        onLogoClick={() => setView("landing")}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
       <main>
         {isAuthenticated && view === "dashboard" ? (
-          <Dashboard onExit={() => setView("landing")} />
+          <Dashboard
+            onExit={() => setView("landing")}
+            apiKeyState={apiKeyState}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
         ) : (
           <Landing onStart={() => setView("dashboard")} />
         )}
       </main>
+      <ApiKeyDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        isConfigured={apiKeyState.isConfigured}
+        onSave={apiKeyState.saveKey}
+        onRemove={apiKeyState.removeKey}
+        isValidating={apiKeyState.isValidating}
+        validationError={apiKeyState.validationError}
+      />
       <Toaster richColors position="top-right" />
     </div>
   );
@@ -71,7 +91,7 @@ function Landing({ onStart }: { onStart: () => void }) {
         className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-soft"
       >
         <span className="h-1.5 w-1.5 rounded-full bg-success" />
-        Powered by Gemini
+        Powered by AI
       </motion.span>
 
       <motion.h1

@@ -1,9 +1,15 @@
 import { motion } from "framer-motion";
-import { Hand, LogIn, LogOut } from "lucide-react";
+import { Hand, LogIn, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/AuthProvider";
 
-export function Navbar({ onLogoClick }: { onLogoClick?: () => void }) {
+export function Navbar({
+  onLogoClick,
+  onOpenSettings,
+}: {
+  onLogoClick?: () => void;
+  onOpenSettings?: () => void;
+}) {
   const { isAuthenticated, username, signIn, signOut } = useAuth();
 
   return (
@@ -29,6 +35,15 @@ export function Navbar({ onLogoClick }: { onLogoClick?: () => void }) {
               <span className="hidden text-sm text-muted-foreground sm:inline">
                 {username ?? "Signed in"}
               </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onOpenSettings}
+                className="h-8 gap-1.5 px-2.5"
+                title="API key settings"
+              >
+                <Settings className="h-3.5 w-3.5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="sm"

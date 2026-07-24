@@ -25,3 +25,8 @@ export type GeminiAnalysis = {
   translatedText: string;
   confidence: number;
 };
+
+export type ApiKeyValidation = {
+  valid: boolean;
+  message: string;
+};

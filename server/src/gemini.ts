@@ -16,10 +16,13 @@ const TARGET_LANGUAGE_LABELS: Record<string, string> = {
   ja: "Japanese",
 };
 
-export async function analyzeFrame(image: string, targetLanguage: string): Promise<GeminiAnalysis> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) {
-    return createFallbackAnalysis(targetLanguage, "GEMINI_API_KEY is not configured");
+export async function analyzeFrame(
+  image: string,
+  targetLanguage: string,
+  apiKey: string,
+): Promise<GeminiAnalysis> {
+  if (!apiKey?.trim()) {
+    throw new Error("No API key provided. Please configure your Gemini API key in settings.");
   }
 
   const imageInput = parseImageData(image);
@@ -43,10 +46,11 @@ export async function analyzeFrame(image: string, targetLanguage: string): Promi
   try {
     return await requestGeminiAnalysis(endpoint, apiKey, prompt, imageInput, targetLanguage);
   } catch (error) {
-    return createFallbackAnalysis(
-      targetLanguage,
-      error instanceof Error ? error.message : "Gemini analysis failed",
-    );
+    const message = error instanceof Error ? error.message : "Gemini analysis failed";
+    if (message.includes("No API key provided") || isAuthError(message)) {
+      throw error;
+    }
+    return createFallbackAnalysis(targetLanguage, message);
   }
 }
 
@@ -149,6 +153,20 @@ async function requestGeminiAnalysis(
   }
 
   throw new Error(`Gemini request failed after ${maxAttempts} attempts`);
+}
+
+function isAuthError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("api_key_invalid") ||
+    lower.includes("api key not valid") ||
+    lower.includes("permission_denied") ||
+    lower.includes("invalid api key") ||
+    lower.includes("http 401") ||
+    lower.includes("http 403") ||
+    lower.includes("status 401") ||
+    lower.includes("status 403")
+  );
 }
 
 function createFallbackAnalysis(targetLanguage: string, reason: string): GeminiAnalysis {
